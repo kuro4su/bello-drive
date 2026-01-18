@@ -13,42 +13,41 @@
       }
     }
   ],
-  "rewrites": [
+  "routes": [
     {
-      "source": "/upload/(.*)",
-      "destination": "/src/index.js"
+      "src": "/upload(.*)",
+      "dest": "/src/index.js"
     },
     {
-      "source": "/files/(.*)",
-      "destination": "/src/index.js"
+      "src": "/files(.*)",
+      "dest": "/src/index.js"
     },
     {
-      "source": "/files",
-      "destination": "/src/index.js"
+      "src": "/files",
+      "dest": "/src/index.js"
     },
     {
-      "source": "/download/(.*)",
-      "destination": "/src/index.js"
+      "src": "/download/(.*)",
+      "dest": "/src/index.js"
     },
     {
-      "source": "/auth/(.*)",
-      "destination": "/src/index.js"
+      "src": "/auth(.*)",
+      "dest": "/src/index.js"
     },
     {
-      "source": "/auth",
-      "destination": "/src/index.js"
+      "src": "/admin(.*)",
+      "dest": "/src/index.js"
     },
     {
-      "source": "/admin/(.*)",
-      "destination": "/src/index.js"
+      "src": "/status",
+      "dest": "/src/index.js"
     },
     {
-      "source": "/status",
-      "destination": "/src/index.js"
+      "handle": "filesystem"
     },
     {
-      "source": "/(.*)",
-      "destination": "/client/dist/$1"
+      "src": "/(.*)",
+      "dest": "/client/dist/index.html"
     }
   ]
 }
