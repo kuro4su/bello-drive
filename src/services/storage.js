@@ -1,6 +1,9 @@
 const { createClient } = require("@supabase/supabase-js");
-const { v4: uuidv4 } = require("uuid");
+const crypto = require("crypto");
 const logger = require("../utils/logger");
+
+// Use crypto.randomUUID() instead of uuid package (ESM compatibility fix)
+const uuidv4 = () => crypto.randomUUID();
 
 // Env Config
 const SUPABASE_URL = process.env.SUPABASE_URL;
