@@ -1,14 +1,8 @@
 {
   "version": 2,
-  "framework": null,
   "buildCommand": "cd client && npm install && npm run build",
   "outputDirectory": "client/dist",
   "installCommand": "npm install && cd client && npm install",
-  "functions": {
-    "api/index.js": {
-      "runtime": "@vercel/node@3"
-    }
-  },
   "rewrites": [
     {
       "source": "/upload/(.*)",
