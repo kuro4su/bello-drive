@@ -33,6 +33,52 @@ router.get("/:filename", optionalAuth, async (req, res) => {
 
   const fileSize = metadata.size;
 
+  // --- REDIRECT MODE: Bypass Vercel bandwidth ---
+  // Use ?redirect=true to get a direct Discord URL redirect
+  // Only works for non-encrypted files (no IV)
+  const hasEncryption = metadata.iv || (metadata.chunks && metadata.chunks.some(c => c.iv));
+
+  if (req.query.redirect === "true" && !hasEncryption) {
+    // Get fresh Discord URL for first chunk
+    let discordUrl = metadata.chunks[0]?.url;
+
+    // Check if URL is expired and refresh if needed
+    const isExpired = (url) => {
+      try {
+        const urlObj = new URL(url);
+        const ex = urlObj.searchParams.get("ex");
+        if (!ex) return false;
+        const expiry = parseInt(ex, 16);
+        const now = Math.floor(Date.now() / 1000);
+        return now > expiry - 300;
+      } catch (e) { return false; }
+    };
+
+    if (isExpired(discordUrl) && metadata.chunks[0]?.messageId) {
+      try {
+        const msgRes = await axios.get(
+          `https://discord.com/api/v10/channels/${process.env.DISCORD_CHANNEL_ID}/messages/${metadata.chunks[0].messageId}`,
+          { headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}` } }
+        );
+        if (msgRes.data.attachments?.[0]?.url) {
+          discordUrl = msgRes.data.attachments[0].url;
+        }
+      } catch (e) {
+        logger.warn("Failed to refresh Discord URL for redirect:", e.message);
+      }
+    }
+
+    // For single-chunk files, redirect directly
+    if (metadata.chunks.length === 1 && discordUrl) {
+      logger.log(`[${req.id}] Redirect mode: ${filename} -> Discord CDN`);
+      return res.redirect(discordUrl);
+    }
+
+    // Multi-chunk files can't redirect (need streaming merge)
+    // Fall through to normal streaming
+    logger.log(`[${req.id}] Redirect skipped (multi-chunk file), using stream`);
+  }
+
   // Set Headers - Simple Format
   const disposition = req.query.download === "true" ? "attachment" : "inline";
   res.setHeader("Content-Disposition", `${disposition}; filename="${metadata.name}"`);
@@ -41,7 +87,7 @@ router.get("/:filename", optionalAuth, async (req, res) => {
   const ext = metadata.name.split(".").pop().toLowerCase();
   const mimeTypes = {
     mp4: "video/mp4",
-    mkv: "video/webm", // Chrome often plays MKV as WebM
+    mkv: "video/webm",
     webm: "video/webm",
     mp3: "audio/mpeg",
     wav: "audio/wav",
