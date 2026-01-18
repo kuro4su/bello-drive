@@ -5,6 +5,7 @@ const busboy = require("busboy");
 const crypto = require("crypto");
 const { storage, DB_TYPE } = require("../services/storage");
 const { uploadBuffer, bulkDeleteMessages } = require("../services/discord");
+const { requireAuth, optionalAuth } = require("../middleware/auth");
 const logger = require("../utils/logger");
 
 // Env
@@ -12,10 +13,8 @@ const logger = require("../utils/logger");
 const RAW_KEY = process.env.ENCRYPTION_KEY || "default_secret_key";
 const ENCRYPTION_KEY = crypto.createHash("sha256").update(String(RAW_KEY)).digest();
 
-// POST /chunk - Stateless Chunk Uploader
-// Receives a single chunk, encrypts it with a unique IV, uploads to Discord
-// Returns: { messageId, url, iv, size }
-router.post("/chunk", (req, res) => {
+// POST /chunk - Stateless Chunk Uploader (requires auth)
+router.post("/chunk", requireAuth, (req, res) => {
   const bb = busboy({ headers: req.headers });
   let fileBuffer = null;
   let currentFile = "unknown";
@@ -68,13 +67,18 @@ router.post("/chunk", (req, res) => {
   req.pipe(bb);
 });
 
-// POST /finalize - Metadata Generator
-// Receives the ordered list of chunks and saves the file metadata
-router.post("/finalize", express.json(), async (req, res) => {
+// POST /finalize - Metadata Generator (requires auth)
+router.post("/finalize", requireAuth, express.json(), async (req, res) => {
   const { filename, chunks, totalSize, type } = req.body;
 
   if (!filename || !chunks || !Array.isArray(chunks)) {
     return res.status(400).json({ error: "Invalid metadata" });
+  }
+
+  // Check Storage Limit
+  const hasSpace = await storage.checkStorageLimit(req.user.id, totalSize);
+  if (!hasSpace) {
+    return res.status(403).json({ error: "Storage limit exceeded! Upgrade your level, baka!" });
   }
 
   // Use Storage Service
@@ -86,8 +90,10 @@ router.post("/finalize", express.json(), async (req, res) => {
       type: type,
       date: new Date().toISOString(),
       folder: req.body.folder || "/",
-      folderId: req.body.folderId || null, // Capture folderId
+      folderId: req.body.folderId || null,
       chunks: chunks,
+      userId: req.user.id, // Set owner from auth
+      isPublic: req.body.isPublic || false
     };
 
     await storage.save(metadata, req.id);

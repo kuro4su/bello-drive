@@ -23,7 +23,7 @@ const getOptimalChunkSize = (size) => {
   return 20 * 1024 * 1024; // > 2GB -> 20MB (Reduces "Spam" for huge files)
 };
 
-export const useUploadManager = (api, onUploadComplete) => {
+export const useUploadManager = (api, onUploadComplete, getAuthHeaders = () => ({})) => {
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
@@ -140,6 +140,7 @@ export const useUploadManager = (api, onUploadComplete) => {
       try {
         const res = await axios.post(`${api}/upload/chunk`, formData, {
           signal,
+          headers: getAuthHeaders(),
           onUploadProgress: (progressEvent) => {
             if (signal?.aborted) return;
             activeChunkProgress[i] = progressEvent.loaded;
@@ -205,7 +206,10 @@ export const useUploadManager = (api, onUploadComplete) => {
         chunks: uploadedChunks,
         iv: null,
       },
-      { signal: abortControllerRef.current?.signal }
+      {
+        signal: abortControllerRef.current?.signal,
+        headers: getAuthHeaders()
+      }
     );
 
     localStorage.removeItem(resumeKey);
@@ -225,7 +229,25 @@ export const useUploadManager = (api, onUploadComplete) => {
       for (let i = 0; i < queue.length; i++) {
         if (signal.aborted) throw new axios.Cancel("Queue Aborted");
         setCurrentFileIndex(i);
-        await uploadSingleFile(queue[i], i, queue.length, targetFolder);
+
+        const file = queue[i];
+        let finalFolder = targetFolder;
+
+        // Handle Folder Uploads (webkitRelativePath)
+        if (file.webkitRelativePath) {
+          const relPath = file.webkitRelativePath;
+          const lastSlash = relPath.lastIndexOf("/");
+          if (lastSlash !== -1) {
+            const subFolder = relPath.substring(0, lastSlash);
+            if (targetFolder === "/") {
+              finalFolder = `/${subFolder}/`;
+            } else {
+              finalFolder = `${targetFolder}${subFolder}/`;
+            }
+          }
+        }
+
+        await uploadSingleFile(file, i, queue.length, finalFolder);
       }
 
       setStatus("Done");

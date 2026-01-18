@@ -1,7 +1,116 @@
 import { Download, Music, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import Plyr from "plyr";
+import "plyr/dist/plyr.css";
 
-const FilePreviewModal = ({ file, api, onClose }) => {
+const VideoPlayer = ({ src }) => {
+  const videoRef = useRef(null);
+  const playerRef = useRef(null);
+
+  useEffect(() => {
+    if (videoRef.current && !playerRef.current) {
+      playerRef.current = new Plyr(videoRef.current, {
+        autoplay: true,
+        controls: [
+          "play-large",
+          "play",
+          "progress",
+          "current-time",
+          "mute",
+          "volume",
+          "captions",
+          "settings",
+          "pip",
+          "airplay",
+          "fullscreen",
+        ],
+      });
+    }
+
+    return () => {
+      if (playerRef.current) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
+    };
+  }, [src]);
+
+  return (
+    <div className="w-full h-full flex items-center justify-center">
+      <video
+        ref={videoRef}
+        src={src}
+        className="plyr-react plyr"
+        playsInline
+        controls
+      />
+    </div>
+  );
+};
+
+// PDF Embed using blob URL to bypass download managers like IDM
+const PDFEmbed = ({ src }) => {
+  const [blobUrl, setBlobUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    setError(null);
+
+    fetch(src)
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to fetch PDF");
+        return res.blob();
+      })
+      .then(blob => {
+        if (isMounted) {
+          const url = URL.createObjectURL(blob);
+          setBlobUrl(url);
+          setLoading(false);
+        }
+      })
+      .catch(err => {
+        if (isMounted) {
+          setError(err.message);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [src]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center w-full h-full">
+        <div className="animate-spin w-10 h-10 border-4 border-ctp-blue border-t-transparent rounded-full"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center text-ctp-red p-4">
+        <p>Failed to load PDF: {error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <iframe
+      src={blobUrl}
+      className="w-full h-full bg-white"
+      title="PDF Preview"
+      style={{ border: 'none' }}
+    />
+  );
+};
+
+const FilePreviewModal = ({ file, api, token, onClose }) => {
   const [objectUrl, setObjectUrl] = useState(null);
 
   // Close on Escape & Cleanup
@@ -15,14 +124,12 @@ const FilePreviewModal = ({ file, api, onClose }) => {
 
   useEffect(() => {
     if (file) {
-      setObjectUrl(`${api}/download/${file.name}`);
+      const tokenParam = token ? `?token=${token}` : "";
+      setObjectUrl(`${api}/download/${encodeURIComponent(file.name)}${tokenParam}`);
     }
-  }, [file, api]);
+  }, [file, api, token]);
 
   if (!file) return null;
-
-  // Use processed ObjectURL or fallback to direct for non-encrypted (handled by effect)
-  // But wait for loading
 
   const getExt = (name) => name.split(".").pop().toLowerCase();
   const ext = getExt(file.name);
@@ -34,7 +141,7 @@ const FilePreviewModal = ({ file, api, onClose }) => {
   const renderContent = () => {
     if (!objectUrl) return null;
 
-    if (isVideo) return <video src={objectUrl} controls autoPlay className="max-w-full max-h-full shadow-2xl" />;
+    if (isVideo) return <VideoPlayer src={objectUrl} />;
     if (isImage) return <img src={objectUrl} alt={file.name} className="max-w-full max-h-full object-contain" />;
     if (isAudio)
       return (
@@ -45,12 +152,12 @@ const FilePreviewModal = ({ file, api, onClose }) => {
           <audio src={objectUrl} controls className="w-full" />
         </div>
       );
-    if (isPdf) return <iframe src={objectUrl} className="w-full h-full bg-white" title="PDF Preview" />;
+    if (isPdf) return <PDFEmbed src={objectUrl} />;
 
     return (
       <div className="text-center">
         <p className="text-ctp-subtext0 mb-4">Preview not supported for this file type.</p>
-        <a href={`${objectUrl}?download=true`} className="btn btn-primary">
+        <a href={`${objectUrl}${objectUrl.includes("?") ? "&" : "?"}download=true`} className="btn btn-primary">
           Download File
         </a>
       </div>
@@ -68,7 +175,7 @@ const FilePreviewModal = ({ file, api, onClose }) => {
           <div className="flex items-center gap-2">
             {objectUrl && (
               <a
-                href={`${objectUrl}?download=true`}
+                href={`${objectUrl}${objectUrl.includes("?") ? "&" : "?"}download=true`}
                 download={file.name}
                 className="btn btn-sm btn-ghost text-ctp-blue hover:bg-ctp-blue/10"
               >

@@ -6,6 +6,7 @@ require("dotenv").config(); // Load env vars immediately
 const uploadRoute = require("./routes/upload");
 const filesRoute = require("./routes/files");
 const downloadRoute = require("./routes/download");
+const authRoute = require("./routes/auth");
 const logger = require("./utils/logger");
 
 // --- Env Validation ---
@@ -14,7 +15,8 @@ const REQUIRED_ENV = [
   "DISCORD_CHANNEL_ID",
   "SUPABASE_URL",
   "SUPABASE_KEY",
-  "ENCRYPTION_KEY"
+  "ENCRYPTION_KEY",
+  "JWT_SECRET"
 ];
 
 const missing = REQUIRED_ENV.filter(k => !process.env[k]);
@@ -53,7 +55,7 @@ app.use(
 // For production, you should restrict this to your actual frontend URL
 app.use(cors({
   origin: process.env.NODE_ENV === "production" ? process.env.ALLOWED_ORIGIN : "*",
-  methods: ["GET", "POST", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
@@ -107,6 +109,8 @@ app.use("/upload", uploadRoute); // /upload/chunk remains under globalLimiter on
 app.use("/files/folder", sensitiveLimiter); // Bulk delete is heavy
 app.use("/files", filesRoute);
 app.use("/download", downloadRoute);
+app.use("/auth", authRoute);
+app.use("/admin", require("./routes/admin"));
 
 // 404 Handler
 app.use((req, res) => {

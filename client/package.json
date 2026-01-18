@@ -15,8 +15,11 @@
     "axios": "^1.11.0",
     "axios-retry": "^4.5.0",
     "lucide-react": "^0.562.0",
+    "plyr": "^3.8.4",
+    "plyr-react": "^6.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-pdf": "^10.3.0",
     "tailwindcss": "^4.1.11"
   },
   "devDependencies": {

@@ -6,18 +6,29 @@ const axios = require("axios");
 const crypto = require("crypto");
 const { storage } = require("../services/storage");
 const logger = require("../utils/logger");
+const { optionalAuth } = require("../middleware/auth");
 
 // Env
 const RAW_KEY = process.env.ENCRYPTION_KEY || "default_secret_key";
 const ENCRYPTION_KEY = crypto.createHash("sha256").update(String(RAW_KEY)).digest();
 
-router.get("/:filename", async (req, res) => {
+router.get("/:filename", optionalAuth, async (req, res) => {
   const filename = req.params.filename;
 
-  const metadata = await storage.get(filename);
+  // Pass req.user.id if available to prefer user's own files
+  const userId = req.user ? req.user.id : null;
+  const metadata = await storage.get(filename, userId);
 
   if (!metadata) {
     return res.status(404).send("File not found");
+  }
+
+  // Access Control
+  if (!metadata.is_public) {
+    // If not public, user must be logged in and be the owner
+    if (!req.user || req.user.id !== metadata.user_id) {
+      return res.status(403).send("Access denied: Private file");
+    }
   }
 
   const fileSize = metadata.size;

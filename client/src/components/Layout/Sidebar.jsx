@@ -1,11 +1,32 @@
-import { Clock, Cloud, HardDrive, LayoutDashboard, Settings, Video, Image as ImageIcon, Music, FileText } from "lucide-react";
+import { Clock, Cloud, HardDrive, LayoutDashboard, Settings, Video, Image as ImageIcon, Music, FileText, Trash2, Shield } from "lucide-react";
 
-const Sidebar = ({ stats, view, setView, onSettingsClick }) => {
+const Sidebar = ({ stats, view, setView, onSettingsClick, user }) => {
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
     { id: "files", label: "My Files", icon: <HardDrive size={18} /> },
     { id: "recent", label: "Recent", icon: <Clock size={18} /> },
+    { id: "trash", label: "Trash", icon: <Trash2 size={18} /> },
   ];
+
+  if (user?.isAdmin) {
+    menuItems.push({ id: "admin", label: "Admin", icon: <Shield size={18} /> });
+  }
+
+  const storageUsed = user?.storageUsed || stats.size || 0;
+  const storageLimit = user?.storageLimit || 1073741824; // 1GB default
+  const usagePercent = Math.min((storageUsed / storageLimit) * 100, 100);
+
+  // Level Calculation (Same as ProfileModal)
+  const level = Math.floor(storageUsed / (100 * 1024 * 1024)) + 1;
+
+  const getTitle = (lvl) => {
+    if (lvl < 5) return "Novice Villager";
+    if (lvl < 10) return "Apprentice Mage";
+    if (lvl < 20) return "Dungeon Explorer";
+    if (lvl < 50) return "High Wizard";
+    if (lvl < 100) return "Demon Lord";
+    return "Isekai Protagonist";
+  };
 
   return (
     <aside className="w-full md:w-72 bg-ctp-mantle/95 backdrop-blur-xl border-r border-ctp-surface0/20 flex flex-col h-full shrink-0 relative overflow-hidden z-20">
@@ -20,7 +41,14 @@ const Sidebar = ({ stats, view, setView, onSettingsClick }) => {
           </div>
           <div>
             <h1 className="text-lg font-bold text-ctp-text leading-tight">neko drive</h1>
-            <p className="text-[9px] text-ctp-subtext0/50 font-black tracking-widest uppercase">Cloud Storage</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="px-1.5 py-0.5 rounded bg-ctp-mauve/20 text-ctp-mauve text-[9px] font-bold border border-ctp-mauve/30">
+                Lv.{level}
+              </span>
+              <span className="text-[9px] text-ctp-subtext0 font-bold uppercase tracking-wider truncate max-w-[120px]">
+                {getTitle(level)}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -51,12 +79,12 @@ const Sidebar = ({ stats, view, setView, onSettingsClick }) => {
         <div className="bg-ctp-base/40 rounded-xl p-4 border border-ctp-surface0/10 backdrop-blur-sm relative group overflow-hidden">
           <div className="flex justify-between items-baseline mb-2">
             <span className="text-[10px] font-black text-ctp-subtext0/60 uppercase tracking-widest">Used Space</span>
-            <span className="text-xs font-black text-ctp-blue">{formatSize(stats.size)}</span>
+            <span className="text-xs font-black text-ctp-blue">{formatSize(storageUsed)}</span>
           </div>
 
           <progress
             className="progress progress-primary w-full h-1 bg-ctp-surface0 rounded-full overflow-hidden mb-4"
-            value={Math.min((stats.size / (50 * 1024 * 1024 * 1024)) * 100, 100)}
+            value={usagePercent}
             max="100"
           ></progress>
 

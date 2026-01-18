@@ -1,7 +1,8 @@
 import { File, UploadCloud, X } from "lucide-react";
 import { useRef, useState } from "react";
+import { processDropItems } from "../../utils/fileScanner";
 
-const UploadWidget = ({ uploadState, currentPath = "/" }) => {
+const UploadWidget = ({ uploadState, currentPath = "/", onStartQueue }) => {
   const { files, setFiles, uploading, progress, status, currentFileIndex, processQueue, cancelQueue, formatBytes } =
     uploadState;
 
@@ -15,13 +16,14 @@ const UploadWidget = ({ uploadState, currentPath = "/" }) => {
     else if (e.type === "dragleave") setDragActive(false);
   };
 
-  const handleDrop = (e) => {
+  const handleDrop = async (e) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files?.length > 0) {
-      // Append or Replace? Let's Replace for now for simplicity as per previous logic
-      setFiles(Array.from(e.dataTransfer.files));
+
+    const allFiles = await processDropItems(e.dataTransfer);
+    if (allFiles.length > 0) {
+      setFiles(allFiles);
     }
   };
 
@@ -46,9 +48,11 @@ const UploadWidget = ({ uploadState, currentPath = "/" }) => {
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
-        onClick={() => {
-          if (!uploading && files.length === 0) {
-            inputRef.current?.click();
+        onClick={(e) => {
+          // Only trigger default file upload if clicking the container background
+          // and NOT clicking buttons or inputs
+          if (e.target === e.currentTarget && !uploading && files.length === 0) {
+            document.querySelector('input[type="file"]:not([webkitdirectory])').click();
           }
         }}
       >
@@ -60,14 +64,46 @@ const UploadWidget = ({ uploadState, currentPath = "/" }) => {
           onChange={handleFilesSelect}
           disabled={uploading}
         />
+        <input
+          ref={(el) => (inputRef.current = { ...inputRef.current, folder: el })}
+          type="file"
+          className="hidden"
+          multiple
+          webkitdirectory=""
+          directory=""
+          onChange={handleFilesSelect}
+          disabled={uploading}
+          id="folder-upload-input"
+        />
 
         {files.length === 0 ? (
           <>
-            <div className="p-4 bg-ctp-surface0/5 rounded-full text-ctp-blue mb-4">
+            <div className="p-4 bg-ctp-surface0/5 rounded-full text-ctp-blue mb-4 pointer-events-none">
               <UploadCloud size={32} />
             </div>
-            <p className="text-ctp-text font-bold text-lg">Drop your files here</p>
-            <p className="text-ctp-subtext0 text-sm mt-1">Single or Multiple</p>
+            <p className="text-ctp-text font-bold text-lg pointer-events-none">Drop files or folders here</p>
+            <p className="text-ctp-subtext0 text-sm mt-1 mb-4 pointer-events-none">or click to upload files</p>
+
+            <div className="flex gap-3 mt-2 z-10 relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  document.querySelector('input[type="file"]:not([webkitdirectory])').click();
+                }}
+                className="btn btn-sm bg-ctp-blue hover:bg-ctp-blue/80 text-ctp-base border-0"
+              >
+                <File size={16} /> Upload Files
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  document.getElementById('folder-upload-input').click();
+                }}
+                className="btn btn-sm bg-ctp-mauve hover:bg-ctp-mauve/80 text-ctp-base border-0"
+              >
+                <UploadCloud size={16} /> Upload Folder
+              </button>
+            </div>
           </>
         ) : (
           <div className="flex flex-col items-center w-full max-w-sm">
@@ -123,6 +159,7 @@ const UploadWidget = ({ uploadState, currentPath = "/" }) => {
                     onClick={(e) => {
                       e.stopPropagation();
                       processQueue(currentPath);
+                      onStartQueue?.();
                     }}
                     className="btn btn-primary flex-1 shadow-lg shadow-primary/20 bg-ctp-blue hover:bg-ctp-sapphire border-none text-ctp-base"
                   >

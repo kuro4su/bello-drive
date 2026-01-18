@@ -1,6 +1,6 @@
-import { Archive, Download, FileImage, FileText, FileVideo, Music, Trash2, Loader2 } from "lucide-react";
+import { Archive, Download, FileImage, FileText, FileVideo, Music, Trash2, Loader2, Check } from "lucide-react";
 
-const FileCard = ({ file, api, onDelete, onDownload, activeOps, onClick }) => {
+const FileCard = ({ file, api, onDelete, onDownload, activeOps, onClick, isSelected, onSelect, onContextMenu }) => {
   const size = (file.size / 1024 / 1024).toFixed(2);
   const ext = file.type || file.name.split(".").pop().toLowerCase();
 
@@ -26,19 +26,56 @@ const FileCard = ({ file, api, onDelete, onDownload, activeOps, onClick }) => {
     ? new Date(file.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
     : "";
 
+  const handleContextMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onContextMenu) {
+      onContextMenu(e, file);
+    }
+  };
+
+  const handleCheckboxClick = (e) => {
+    e.stopPropagation();
+    if (onSelect) {
+      onSelect(file.name);
+    }
+  };
+
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData("application/json", JSON.stringify({ type: "file", name: file.name }));
+    e.dataTransfer.effectAllowed = "move";
+  };
+
   return (
     <div
       onClick={!isLoading ? onClick : undefined}
-      className={`group flex flex-col p-4 rounded-xl bg-ctp-base border border-ctp-surface0/20 hover:border-ctp-blue/50 hover:bg-ctp-mantle hover:-translate-y-1 transition-all duration-300 shadow-sm hover:shadow-md h-full cursor-pointer relative overflow-hidden ${isLoading ? "opacity-70 pointer-events-none" : ""
+      onContextMenu={handleContextMenu}
+      draggable={!isLoading}
+      onDragStart={handleDragStart}
+      className={`group flex flex-col p-4 rounded-xl bg-ctp-base border transition-all duration-300 shadow-sm hover:shadow-md h-full cursor-pointer relative overflow-hidden ${isLoading ? "opacity-70 pointer-events-none" : ""
+        } ${isSelected
+          ? "border-ctp-blue bg-ctp-blue/5 ring-1 ring-ctp-blue/30"
+          : "border-ctp-surface0/20 hover:border-ctp-blue/50 hover:bg-ctp-mantle hover:-translate-y-1"
         }`}
     >
+      {/* Selection Checkbox */}
+      <div
+        onClick={handleCheckboxClick}
+        className={`absolute top-3 right-3 w-5 h-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer z-10 ${isSelected
+          ? "bg-ctp-blue border-ctp-blue"
+          : "border-ctp-surface0/50 bg-ctp-base/50 opacity-0 group-hover:opacity-100"
+          }`}
+      >
+        {isSelected && <Check size={14} className="text-ctp-base" />}
+      </div>
+
       {/* Top: Icon + Info */}
       <div className="flex items-start gap-4 mb-3">
         <div className={`p-3 rounded-lg ${bg} ${color} shrink-0 group-hover:opacity-80 transition-opacity flex items-center justify-center`}>
           {isLoading ? <Loader2 size={24} className="animate-spin" /> : icon}
         </div>
 
-        <div className="flex-1 min-w-0 pt-0.5">
+        <div className="flex-1 min-w-0 pt-0.5 pr-6">
           <h3 className="text-sm font-bold text-ctp-text truncate mb-1 group-hover:text-ctp-blue transition-colors" title={file.name}>
             {file.name}
           </h3>
@@ -85,3 +122,4 @@ const FileCard = ({ file, api, onDelete, onDownload, activeOps, onClick }) => {
 };
 
 export default FileCard;
+
