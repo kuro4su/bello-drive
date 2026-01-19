@@ -16,11 +16,10 @@ axiosRetry(axios, {
   },
 });
 
+// Discord non-Nitro limit is 10MB, we use 9.5MB to be safe
 const getOptimalChunkSize = (size) => {
-  if (size < 200 * 1024 * 1024) return 2 * 1024 * 1024;      // < 200MB -> 2MB
-  if (size < 1024 * 1024 * 1024) return 8 * 1024 * 1024;     // < 1GB   -> 8MB
-  if (size < 2 * 1024 * 1024 * 1024) return 15 * 1024 * 1024; // < 2GB   -> 15MB
-  return 20 * 1024 * 1024; // > 2GB -> 20MB (Reduces "Spam" for huge files)
+  // All files use 9.5MB chunks (max for Discord without Nitro)
+  return 9.5 * 1024 * 1024; // 9.5MB
 };
 
 export const useUploadManager = (api, onUploadComplete, getAuthHeaders = () => ({})) => {
